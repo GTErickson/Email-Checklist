@@ -1,8 +1,10 @@
+import email.utils
 import os
 import imaplib
 import email
 from email.header import decode_header
 import datetime
+import re
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 from dotenv import load_dotenv
@@ -287,8 +289,24 @@ class EmailApp(tk.Tk):
         self.email_listbox.delete(0, tk.END)
 
         for email_info in self.email_data:
+
+            name_match = re.match(r"([^<]+)", email_info["from"])
+            name = name_match.group(1).strip() if name_match else email_info["from"]
+
+            max_subject_chars = 50
+            subject = email_info["subject"]
+            if len(subject) > max_subject_chars:
+                subject = subject[:max_subject_chars - 3] + "..."
+
+            email_date = email.utils.parsedate_to_datetime(email_info["date"])
+            now = datetime.datetime.now()
+            if email_date.date() == now.date():
+                date_str = email_date.strftime("%I:%M %p").lstrip("0")
+            else:
+                date_str = email_date.strftime("%b %d")
+
             self.email_listbox.insert(
-                tk.END, f"{email_info['from']} - {email_info['date']}\n({email_info['subject']})\n\n"
+                tk.END, f"{name} - {subject} - {date_str}\n\n"
             )
 
         self.show_frame(self.list_frame)
@@ -307,6 +325,7 @@ class EmailApp(tk.Tk):
 
     def display_email_content(self, event):
         """Display the selected email content."""
+        buffer = "--------------------------------------------------------------------------------"
         selected_idx = self.email_listbox.curselection()
         if not selected_idx:
             return
@@ -314,7 +333,7 @@ class EmailApp(tk.Tk):
         email_info = self.email_data[selected_idx[0]]
         self.email_content_text.delete(1.0, tk.END)
         self.email_content_text.insert(
-            tk.END, f"Subject: {email_info['subject']}\nFrom: {email_info['from']}\nDate: {email_info['date']}\n\n{email_info['body']}"
+            tk.END, f"Subject: {email_info['subject']}\nFrom: {email_info['from']}\nDate: {email_info['date']}\n{buffer}\n\n{email_info['body']}\n\n{buffer}"
         )
         self.show_frame(self.content_frame)
 
