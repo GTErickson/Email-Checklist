@@ -3,16 +3,17 @@
 
 This application aims to shave time off of sifting through emails via AI integration.
 
-How To Run Application
+How To Run the Application
 ---
 1. Clone repository
-2. Install depencencies
-3. Update the .env file with your email credentials]
+2. Install dependencies
+3. Update the .env file with your email credentials
 4. run app.py
 
 
 Upcoming Improvements:
 ---
 - Spam filtering
-- More readable email list
-- AI generation for checklist
+- Update documentation
+- Separate components into their own files
+- AI generation for the checklist
