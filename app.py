@@ -8,18 +8,75 @@ import re
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 from dotenv import load_dotenv
+import json
 
 # Load credentials from .env
 load_dotenv()
 EMAIL = os.getenv("EMAIL")
 PASSWORD = os.getenv("PASSWORD")
 
+# ----------- Spam Blocking Logic ----------- 
+
+class SpamBlocker:
+    def __init__(self, blocked_file="blocked_emails.json"):
+        self.blocked_file = blocked_file
+        self.blocked_emails = self.load_blocked_emails()
+    
+    def load_blocked_emails(self):
+        """Load blocked email addresses from file."""
+        try:
+            if os.path.exists(self.blocked_file):
+                with open(self.blocked_file, 'r') as f:
+                    return set(json.load(f))
+            return set()
+        except:
+            return set()
+    
+    def save_blocked_emails(self):
+        """Save blocked email addresses to file."""
+        try:
+            with open(self.blocked_file, 'w') as f:
+                json.dump(list(self.blocked_emails), f, indent=2)
+        except Exception as e:
+            print(f"Error saving blocked emails: {e}")
+    
+    def add_blocked_email(self, email_address):
+        """Add an email address to the blocked list."""
+        email_address = email_address.lower().strip()
+        self.blocked_emails.add(email_address)
+        self.save_blocked_emails()
+    
+    def remove_blocked_email(self, email_address):
+        """Remove an email address from the blocked list."""
+        email_address = email_address.lower().strip()
+        if email_address in self.blocked_emails:
+            self.blocked_emails.remove(email_address)
+            self.save_blocked_emails()
+            return True
+        return False
+    
+    def is_blocked(self, email_address):
+        """Check if an email address is blocked."""
+        if not email_address:
+            return False
+        
+        # Extract email address from "Name <email@domain.com>" format
+        email_match = re.search(r'<([^>]+)>', email_address)
+        if email_match:
+            email_address = email_match.group(1)
+        
+        return email_address.lower().strip() in self.blocked_emails
+    
+    def get_blocked_emails(self):
+        """Get list of blocked email addresses."""
+        return sorted(list(self.blocked_emails))
+
 # ----------- Email Fetching Logic ----------- 
 
 # Global set to track fetched email IDs
 fetched_email_ids = set()
 
-def fetch_emails(mail_connection):
+def fetch_emails(mail_connection, spam_blocker):
     try:
         if not mail_connection:
             raise Exception("No active email connection.")
@@ -52,6 +109,10 @@ def fetch_emails(mail_connection):
             from_ = msg.get("From")
             date_ = msg.get("Date")
 
+            # Check if email is blocked
+            if spam_blocker.is_blocked(from_):
+                continue  # Skip this email if it's from a blocked sender
+
             # Decode the full content
             body = ""
             if msg.is_multipart():
@@ -73,13 +134,11 @@ def fetch_emails(mail_connection):
         messagebox.showerror("Error", f"An error occurred: {e}")
         return []
 
-
-
 # ----------- GUI Application ----------- 
 class EmailApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Email Viewer")
+        self.title("Email Viewer with Spam Blocking")
         # Get screen width and height
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
@@ -88,21 +147,24 @@ class EmailApp(tk.Tk):
         #self.geometry(f"{screen_width}x{screen_height}")
         self.geometry("700x600")
 
-        # Initialize the IMAP connection
+        # Initialize the IMAP connection and spam blocker
         self.mail_connection = None
         self.email_data = []
+        self.spam_blocker = SpamBlocker()
 
-        # Create the three frames
+        # Create the frames
         self.startup_frame = tk.Frame(self)
         self.list_frame = tk.Frame(self)
         self.content_frame = tk.Frame(self)
+        self.spam_frame = tk.Frame(self)
 
-        for frame in (self.startup_frame, self.list_frame, self.content_frame):
+        for frame in (self.startup_frame, self.list_frame, self.content_frame, self.spam_frame):
             frame.grid(row=0, column=0, sticky="nsew")
 
         self.create_startup_frame()
         self.create_list_frame()
         self.create_content_frame()
+        self.create_spam_frame()
 
         self.show_frame(self.startup_frame)
 
@@ -128,14 +190,11 @@ class EmailApp(tk.Tk):
             messagebox.showerror("Error", f"Failed to connect to the email server: {e}")
             self.mail_connection = None
 
-
     def on_close(self):
         """Close the IMAP connection and exit the app."""
         if self.mail_connection:
             self.mail_connection.logout()
         self.destroy()
-        
-
 
     def show_frame(self, frame):
         """Switches between frames."""
@@ -146,7 +205,7 @@ class EmailApp(tk.Tk):
         # Configure columns and rows for centering
         self.startup_frame.grid_columnconfigure(0, weight=1)
         self.startup_frame.grid_rowconfigure(0, weight=1)  # Top spacer row
-        self.startup_frame.grid_rowconfigure(4, weight=1)  # Bottom spacer row
+        self.startup_frame.grid_rowconfigure(5, weight=1)  # Bottom spacer row
 
         # Title label in row 1
         tk.Label(
@@ -176,6 +235,14 @@ class EmailApp(tk.Tk):
             command=self.fetch_and_show_emails
         ).pack(side=tk.LEFT, padx=5)
 
+        # Spam Settings button
+        tk.Button(
+            button_frame,
+            text="Spam Settings",
+            font=("Arial", 14),
+            command=lambda: self.show_frame(self.spam_frame)
+        ).pack(side=tk.LEFT, padx=5)
+
         # Close button
         tk.Button(
             button_frame,
@@ -183,8 +250,6 @@ class EmailApp(tk.Tk):
             font=("Arial", 14),
             command=self.on_close
         ).pack(side=tk.LEFT, padx=5)
-
-
 
     # ----------- List Frame ----------- 
     def create_list_frame(self):
@@ -201,8 +266,13 @@ class EmailApp(tk.Tk):
         self.email_listbox.pack(fill=tk.BOTH, expand=True)
         self.email_listbox.bind("<Motion>", self.highlight_item)
         self.email_listbox.bind("<<ListboxSelect>>", self.display_email_content)
+        self.email_listbox.bind("<Button-3>", self.show_email_context_menu)  # Right-click menu
 
-        # Right: Checklist boxx
+        # Context menu for email actions
+        self.email_context_menu = tk.Menu(self.email_listbox, tearoff=0)
+        self.email_context_menu.add_command(label="Block Sender", command=self.block_sender)
+
+        # Right: Checklist box
         checklist_frame = tk.Frame(main_frame)
         checklist_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5)
 
@@ -227,7 +297,6 @@ class EmailApp(tk.Tk):
         self.checklist_listbox.bind("<Double-1>", self.toggle_checklist_item)  # Bind double-click
         self.checklist_listbox.bind("<Button-3>", self.show_context_menu)  # Bind right-click for deletion
 
-
         # Context menu for deletion
         self.context_menu = tk.Menu(self.checklist_listbox, tearoff=0)
         self.context_menu.add_command(label="Delete Item", command=self.delete_checklist_item)
@@ -238,6 +307,39 @@ class EmailApp(tk.Tk):
             text="Back to Startup",
             command=lambda: self.show_frame(self.startup_frame)
         ).pack(pady=10)
+
+    def show_email_context_menu(self, event):
+        """Show context menu for email actions."""
+        try:
+            self.email_listbox.select_clear(0, tk.END)
+            self.email_listbox.select_set(self.email_listbox.nearest(event.y))
+            self.email_context_menu.post(event.x_root, event.y_root)
+        finally:
+            self.email_context_menu.grab_release()
+
+    def block_sender(self):
+        """Block the sender of the selected email."""
+        selected_idx = self.email_listbox.curselection()
+        if not selected_idx:
+            return
+        
+        email_info = self.email_data[selected_idx[0]]
+        sender = email_info["from"]
+        
+        # Extract email address
+        email_match = re.search(r'<([^>]+)>', sender)
+        if email_match:
+            email_address = email_match.group(1)
+        else:
+            email_address = sender
+        
+        # Confirm blocking
+        result = messagebox.askyesno("Block Sender", f"Block emails from {email_address}?")
+        if result:
+            self.spam_blocker.add_blocked_email(email_address)
+            messagebox.showinfo("Success", f"Blocked {email_address}")
+            # Refresh email list
+            self.fetch_and_show_emails()
 
     def add_checklist_item(self):
         """Prompt the user to add an item to the checklist."""
@@ -285,11 +387,10 @@ class EmailApp(tk.Tk):
             messagebox.showerror("Error", "Email connection is not established.")
             return
 
-        self.email_data = fetch_emails(self.mail_connection)  # Use persistent connection
+        self.email_data = fetch_emails(self.mail_connection, self.spam_blocker)  # Pass spam blocker
         self.email_listbox.delete(0, tk.END)
 
         for email_info in self.email_data:
-
             name_match = re.match(r"([^<]+)", email_info["from"])
             name = name_match.group(1).strip() if name_match else email_info["from"]
 
@@ -311,6 +412,88 @@ class EmailApp(tk.Tk):
 
         self.show_frame(self.list_frame)
 
+    # ----------- Spam Frame ----------- 
+    def create_spam_frame(self):
+        # Title
+        tk.Label(self.spam_frame, text="Spam Blocking Settings", font=("Arial", 16)).pack(pady=10)
+
+        # Frame for adding new blocked email
+        add_frame = tk.Frame(self.spam_frame)
+        add_frame.pack(pady=10)
+
+        tk.Label(add_frame, text="Block Email Address:", font=("Arial", 12)).pack(side=tk.LEFT, padx=5)
+        self.block_email_entry = tk.Entry(add_frame, width=30)
+        self.block_email_entry.pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(add_frame, text="Add", command=self.add_blocked_email).pack(side=tk.LEFT, padx=5)
+
+        # Blocked emails list
+        tk.Label(self.spam_frame, text="Blocked Email Addresses:", font=("Arial", 12)).pack(pady=(20, 5))
+        
+        # Frame for listbox and scrollbar
+        list_frame = tk.Frame(self.spam_frame)
+        list_frame.pack(pady=5, padx=20, fill=tk.BOTH, expand=True)
+
+        self.blocked_listbox = tk.Listbox(list_frame, height=15)
+        self.blocked_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.blocked_listbox.bind("<Button-3>", self.show_blocked_context_menu)
+
+        # Scrollbar for blocked emails list
+        scrollbar = tk.Scrollbar(list_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.blocked_listbox.config(yscrollcommand=scrollbar.set)
+        scrollbar.config(command=self.blocked_listbox.yview)
+
+        # Context menu for blocked emails
+        self.blocked_context_menu = tk.Menu(self.blocked_listbox, tearoff=0)
+        self.blocked_context_menu.add_command(label="Unblock", command=self.unblock_email)
+
+        # Back button
+        tk.Button(
+            self.spam_frame,
+            text="Back to Startup",
+            command=lambda: self.show_frame(self.startup_frame)
+        ).pack(pady=10)
+
+        # Load blocked emails into the listbox
+        self.refresh_blocked_list()
+
+    def add_blocked_email(self):
+        """Add an email address to the blocked list."""
+        email_address = self.block_email_entry.get().strip()
+        if email_address:
+            self.spam_blocker.add_blocked_email(email_address)
+            self.block_email_entry.delete(0, tk.END)
+            self.refresh_blocked_list()
+            messagebox.showinfo("Success", f"Blocked {email_address}")
+
+    def show_blocked_context_menu(self, event):
+        """Show context menu for blocked emails."""
+        try:
+            self.blocked_listbox.select_clear(0, tk.END)
+            self.blocked_listbox.select_set(self.blocked_listbox.nearest(event.y))
+            self.blocked_context_menu.post(event.x_root, event.y_root)
+        finally:
+            self.blocked_context_menu.grab_release()
+
+    def unblock_email(self):
+        """Remove an email address from the blocked list."""
+        selected_idx = self.blocked_listbox.curselection()
+        if not selected_idx:
+            return
+        
+        email_address = self.blocked_listbox.get(selected_idx)
+        result = messagebox.askyesno("Unblock Email", f"Unblock {email_address}?")
+        if result:
+            self.spam_blocker.remove_blocked_email(email_address)
+            self.refresh_blocked_list()
+            messagebox.showinfo("Success", f"Unblocked {email_address}")
+
+    def refresh_blocked_list(self):
+        """Refresh the blocked emails list."""
+        self.blocked_listbox.delete(0, tk.END)
+        for email_address in self.spam_blocker.get_blocked_emails():
+            self.blocked_listbox.insert(tk.END, email_address)
 
     # ----------- Content Frame ----------- 
     def create_content_frame(self):
