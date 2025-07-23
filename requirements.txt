@@ -1,0 +1,2 @@
+# Core dependencies for the email application
+python-dotenv==1.0.0
