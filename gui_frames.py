@@ -220,20 +220,42 @@ class EmailContentFrame:
         self.frame = tk.Frame(parent)
         self.callbacks = callbacks
         self.content_text: Optional[tk.Text] = None
+        self.current_email_data: Optional[Dict] = None
         self._create_widgets()
     
     def _create_widgets(self):
         self.content_text = tk.Text(self.frame, wrap="word", width=80, height=25)
         self.content_text.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
+        # Button frame for multiple buttons
+        button_frame = tk.Frame(self.frame)
+        button_frame.pack(pady=10)
+
+        # Back button
         tk.Button(
-            self.frame,
+            button_frame,
             text="Back to Email List",
             command=self.callbacks.get("back_to_list")
-        ).pack(pady=10)
+        ).pack(side=tk.LEFT, padx=5)
+
+        # Generate checklist item button
+        tk.Button(
+            button_frame,
+            text="Generate Checklist Item",
+            command=self._generate_checklist_item,
+            bg="#4CAF50",
+            fg="white",
+            font=("Arial", 10, "bold")
+        ).pack(side=tk.LEFT, padx=5)
+    
+    def _generate_checklist_item(self):
+        """Generate a checklist item from the current email."""
+        if self.callbacks.get("generate_checklist_item") and self.current_email_data:
+            self.callbacks["generate_checklist_item"](self.current_email_data)
     
     def display_email(self, email_data: Dict):
         """Display email content."""
+        self.current_email_data = email_data
         self.content_text.delete(1.0, tk.END)
         content = EmailFormatter.format_email_content(email_data)
         self.content_text.insert(tk.END, content)
