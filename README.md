@@ -71,14 +71,14 @@ For **Outlook**:
 ### Environment Variables
 
 | Variable              | Description                         | Default               |
-| --------------------- | ----------------------------------- | --------------------- | --- |
+| --------------------- | ----------------------------------- | --------------------- |
 | `EMAIL`               | Your email address                  | Required              |
 | `PASSWORD`            | Your app password                   | Required              |
 | `CLAUDE_API_KEY`      | Your Claude API key for AI features | Optional              |
 | `IMAP_SERVER`         | IMAP server address                 | `imap.mail.yahoo.com` |
 | `WINDOW_WIDTH`        | Application window width            | `700`                 |
 | `WINDOW_HEIGHT`       | Application window height           | `600`                 |
-| `BLOCKED_EMAILS_FILE` | Blocked emails storage file         | `blocked_emails.json` | c   |
+| `BLOCKED_EMAILS_FILE` | Blocked emails storage file         | `blocked_emails.json` |
 
 ## Usage
 
