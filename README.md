@@ -6,6 +6,7 @@ A Python desktop application for viewing emails with built-in spam blocking func
 
 - **Email Viewing**: Connect to IMAP servers and view recent emails
 - **Spam Blocking**: Block unwanted senders and manage blocked email lists
+- **AI-Powered Checklist Generation**: Generate actionable checklist items from email content using Claude AI
 - **Checklist**: Built-in task management with checkable items
 - **Modular Design**: Clean separation of concerns for easy maintenance
 
@@ -19,6 +20,7 @@ email-app/
 ├── email_service.py       # Email fetching service
 ├── email_utils.py         # Email utility functions
 ├── gui_frames.py          # GUI frame components
+├── claude_service.py      # Claude AI integration for checklist generation
 ├── api_integration.py     # Future API integration framework
 ├── requirements.txt       # Python dependencies
 ├── .env                   # Environment variables (create this)
@@ -39,6 +41,7 @@ email-app/
    ```
    EMAIL=your_email@example.com
    PASSWORD=your_app_password
+   CLAUDE_API_KEY=your_claude_api_key
    IMAP_SERVER=imap.mail.yahoo.com
    WINDOW_WIDTH=700
    WINDOW_HEIGHT=600
@@ -67,14 +70,15 @@ For **Outlook**:
 
 ### Environment Variables
 
-| Variable              | Description                 | Default               |
-| --------------------- | --------------------------- | --------------------- |
-| `EMAIL`               | Your email address          | Required              |
-| `PASSWORD`            | Your app password           | Required              |
-| `IMAP_SERVER`         | IMAP server address         | `imap.mail.yahoo.com` |
-| `WINDOW_WIDTH`        | Application window width    | `700`                 |
-| `WINDOW_HEIGHT`       | Application window height   | `600`                 |
-| `BLOCKED_EMAILS_FILE` | Blocked emails storage file | `blocked_emails.json` |
+| Variable              | Description                         | Default               |
+| --------------------- | ----------------------------------- | --------------------- | --- |
+| `EMAIL`               | Your email address                  | Required              |
+| `PASSWORD`            | Your app password                   | Required              |
+| `CLAUDE_API_KEY`      | Your Claude API key for AI features | Optional              |
+| `IMAP_SERVER`         | IMAP server address                 | `imap.mail.yahoo.com` |
+| `WINDOW_WIDTH`        | Application window width            | `700`                 |
+| `WINDOW_HEIGHT`       | Application window height           | `600`                 |
+| `BLOCKED_EMAILS_FILE` | Blocked emails storage file         | `blocked_emails.json` | c   |
 
 ## Usage
 
@@ -84,12 +88,13 @@ For **Outlook**:
    python main.py
    ```
 
-2. **Main Features**:
+2. **Main Features**:c
 
    - **Fetch Emails**: Retrieves emails from the last 24 hours
    - **Block Senders**: Right-click on emails to block senders
    - **Spam Settings**: Manage blocked email addresses
-   - **Checklist**: Add and manage tasks alongside your emails
+   - **AI Checklist Generation**: Click "Generate Checklist Item" when viewing an email to create actionable tasks
+   - **Checklist Management**: Add, toggle, and delete checklist items
 
 3. **Navigation**:
    - Use the buttons to navigate between different screens
@@ -105,7 +110,6 @@ For **Outlook**:
 - **`spam_blocker.py`**: Handles blocking/unblocking email addresses with persistent storage
 - **`email_service.py`**: IMAP email fetching and connection management
 - **`email_utils.py`**: Utility functions for email formatting and validation
-- **`gui_frames.py`**: Modular GUI components for different application screens
 
 ### Additional Features
 
@@ -124,14 +128,13 @@ The application follows these principles:
 - **Dependency Injection**: Callbacks and services are passed between components
 - **Configuration Management**: All settings centralized in `config.py`
 - **Error Handling**: Comprehensive exception handling throughout
-- **Type Hints**: Full type annotation for better code maintainability
+- **Type Hints**: Full type annotation for better code msaintainability
 
 ## Future Features
 
-1. **AI Integration**: Add Claude integration
-2. **New GUI Components**: Add frames to `gui_frames.py`
-3. **Email Processing**: Extend `email_service.py` or `email_utils.py`
-4. **Configuration**: Add new settings to `config.py`
+1. **New GUI Components**: Add frames to `gui_frames.py`
+2. **Email Processing**: Extend `email_service.py` or `email_utils.py`
+3. **Configuration**: Add new settings to `config.py`
 
 ## Troubleshooting
 
@@ -154,3 +157,4 @@ For issues or questions:
 ## License
 
 This project is open source and available under the MIT License.
+c
