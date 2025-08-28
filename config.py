@@ -30,6 +30,14 @@ class Config:
     @property
     def window_height(self):
         return int(os.getenv("WINDOW_HEIGHT", "600"))
+    
+    @property
+    def claude_api_key(self):
+        return os.getenv("CLAUDE_API_KEY")
+    
+    @property
+    def claude_model(self):
+        return os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-20241022")
 
 # Global config instance
 config = Config()

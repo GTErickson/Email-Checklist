@@ -1,2 +1,5 @@
 # Core dependencies for the email application
 python-dotenv==1.0.0
+
+# Claude API integration
+anthropic==0.7.8

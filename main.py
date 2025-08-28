@@ -14,6 +14,7 @@ from spam_blocker import SpamBlocker
 from email_service import EmailService
 from email_utils import EmailFormatter, EmailValidator
 from gui_frames import StartupFrame, EmailListFrame, EmailContentFrame, SpamSettingsFrame
+from claude_service import claude_service
 
 
 class EmailApp(tk.Tk):
@@ -63,7 +64,8 @@ class EmailApp(tk.Tk):
         }
         
         content_callbacks = {
-            "back_to_list": lambda: self.show_frame("list")
+            "back_to_list": lambda: self.show_frame("list"),
+            "generate_checklist_item": self._generate_checklist_item
         }
         
         spam_callbacks = {
@@ -192,6 +194,139 @@ class EmailApp(tk.Tk):
                 messagebox.showinfo("Success", f"Unblocked {email_address}")
             else:
                 messagebox.showerror("Error", "Email address not found in blocked list.")
+    
+    def _generate_checklist_item(self, email_data: Dict):
+        """Generate a checklist item from email content using Claude API."""
+        if not claude_service or not claude_service.is_available():
+            messagebox.showerror(
+                "Claude API Not Available", 
+                "Claude API is not configured. Please set CLAUDE_API_KEY in your .env file."
+            )
+            return
+        
+        try:
+            # Show loading message
+            loading_msg = messagebox.showinfo(
+                "Generating...", 
+                "Generating checklist item from email content..."
+            )
+            
+            # Generate checklist item using Claude
+            checklist_item = claude_service.generate_checklist_item(
+                email_subject=email_data["subject"],
+                email_body=email_data["body"],
+                email_sender=email_data["from"]
+            )
+            
+            if checklist_item:
+                # Ask user if they want to add the generated item
+                result = messagebox.askyesno(
+                    "Add Checklist Item",
+                    f'Generated checklist item:\n\n"{checklist_item}"\n\nAdd this to your checklist?'
+                )
+                
+                if result:
+                    # Add to checklist in the list frame
+                    self.frames["list"].checklist_listbox.insert(tk.END, checklist_item)
+                    messagebox.showinfo("Success", "Checklist item added!")
+                    
+                    # Option to generate more items
+                    more_items = messagebox.askyesno(
+                        "Generate More?",
+                        "Would you like to generate additional checklist items from this email?"
+                    )
+                    
+                    if more_items:
+                        self._generate_multiple_checklist_items(email_data)
+            else:
+                messagebox.showerror(
+                    "Generation Failed", 
+                    "Failed to generate checklist item. Please try again."
+                )
+                
+        except Exception as e:
+            messagebox.showerror(
+                "Error", 
+                f"Error generating checklist item: {e}"
+            )
+    
+    def _generate_multiple_checklist_items(self, email_data: Dict):
+        """Generate multiple checklist items from email content."""
+        try:
+            # Generate multiple items
+            checklist_items = claude_service.generate_multiple_checklist_items(
+                email_subject=email_data["subject"],
+                email_body=email_data["body"],
+                email_sender=email_data["from"],
+                count=3
+            )
+            
+            if checklist_items:
+                # Show all generated items for selection
+                items_text = "\n".join([f"• {item}" for item in checklist_items])
+                result = messagebox.askyesno(
+                    "Add Multiple Items",
+                    f"Generated checklist items:\n\n{items_text}\n\nAdd all these items to your checklist?"
+                )
+                
+                if result:
+                    for item in checklist_items:
+                        self.frames["list"].checklist_listbox.insert(tk.END, item)
+                    messagebox.showinfo("Success", f"Added {len(checklist_items)} items to your checklist!")
+            else:
+                messagebox.showwarning(
+                    "No Items Generated",
+                    "Could not generate additional checklist items."
+                )
+                
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Error generating multiple checklist items: {e}"
+            )
+    
+    def _generate_checklist_item(self, email_data: Dict):
+        """Generate a checklist item from email content using Claude API."""
+        if not claude_service or not claude_service.is_available():
+            messagebox.showerror(
+                "Claude API Not Available", 
+                "Claude API is not configured. Please set CLAUDE_API_KEY in your .env file."
+            )
+            return
+        
+        try:
+            # Show loading message
+            self.update_idletasks()  # Update GUI before showing loading
+            
+            # Generate checklist item using Claude
+            checklist_item = claude_service.generate_checklist_item(
+                email_subject=email_data["subject"],
+                email_body=email_data["body"],
+                email_sender=email_data["from"]
+            )
+            
+            if checklist_item:
+                # Ask user if they want to add the generated item
+                result = messagebox.askyesno(
+                    "Add Checklist Item",
+                    f'Generated checklist item:\n\n"{checklist_item}"\n\nAdd this to your checklist?'
+                )
+                
+                if result:
+                    # Add to checklist in the list frame
+                    self.frames["list"].checklist_listbox.insert(tk.END, checklist_item)
+                    messagebox.showinfo("Success", "Checklist item added!")
+            else:
+                messagebox.showerror(
+                    "Generation Failed", 
+                    "Failed to generate checklist item. Please try again."
+                )
+                
+        except Exception as e:
+            messagebox.showerror(
+                "Error", 
+                f"Error generating checklist item: {e}"
+            )
     
     def _on_close(self):
         """Handle application closing."""
